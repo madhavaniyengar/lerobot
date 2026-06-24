@@ -21,7 +21,7 @@ from typing import Type, TypeVar
 import draccus
 from huggingface_hub import hf_hub_download
 from huggingface_hub.constants import CONFIG_NAME
-from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub.errors import HFValidationError, HfHubHTTPError
 
 from lerobot.common.optim.optimizers import OptimizerConfig
 from lerobot.common.optim.schedulers import LRSchedulerConfig
@@ -152,6 +152,11 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):
                 config_file = os.path.join(model_id, CONFIG_NAME)
             else:
                 print(f"{CONFIG_NAME} not found in {Path(model_id).resolve()}")
+        elif Path(model_id).is_absolute() or model_id.startswith("."):
+            # Looks like a local path that doesn't exist.
+            raise FileNotFoundError(
+                f"Local path '{model_id}' does not exist or is not a directory."
+            )
         else:
             try:
                 config_file = hf_hub_download(
@@ -165,7 +170,7 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):
                     token=token,
                     local_files_only=local_files_only,
                 )
-            except HfHubHTTPError as e:
+            except (HfHubHTTPError, HFValidationError) as e:
                 raise FileNotFoundError(
                     f"{CONFIG_NAME} not found on the HuggingFace Hub in {model_id}"
                 ) from e
@@ -173,14 +178,41 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):
         # HACK: this is very ugly, ideally we'd like to be able to do that natively with draccus
         # something like --policy.path (in addition to --policy.type)
         cli_overrides = policy_kwargs.pop("cli_overrides", [])
-        return draccus.parse(cls, config_file, args=cli_overrides)
+
+        # Two-pass approach: draccus first builds its argparser from the *base* class, so any
+        # subclass-specific fields in cli_overrides (e.g. --drop_half_horizon) cause an
+        # "unrecognized arguments" error before the concrete subclass is ever resolved.
+        # Fix: load the full concrete config from the file first (no CLI overrides), then
+        # apply the CLI overrides by hand with simple type coercion.
+        cfg = draccus.parse(cls, config_file, args=[])
+        for override in cli_overrides:
+            stripped = override.lstrip("-")
+            if "=" not in stripped:
+                continue
+            key, val = stripped.split("=", 1)
+            if not hasattr(cfg, key):
+                logging.warning(f"CLI override --{key}={val} is not a field of {type(cfg).__name__}, skipping.")
+                continue
+            current = getattr(cfg, key)
+            if isinstance(current, bool):
+                setattr(cfg, key, val.lower() in ("true", "1", "yes"))
+            elif isinstance(current, int):
+                setattr(cfg, key, int(val))
+            elif isinstance(current, float):
+                setattr(cfg, key, float(val))
+            elif current is None:
+                # Type unknown — store as string; caller can coerce further if needed
+                setattr(cfg, key, val)
+            else:
+                setattr(cfg, key, val)
+        return cfg
 
     def get_robot_adapter(self):
         """Factory method to get appropriate robot adapter"""
         if self.robot_type == "aloha":
             from lerobot.common.policies.robot_adapters import AlohaAdapter
             return AlohaAdapter(self.action_space)
-        elif self.robot_type == "droid":
+        elif self.robot_type in ["droid", "franka_2cam"]:
             from lerobot.common.policies.robot_adapters import DroidAdapter
             return DroidAdapter(self.action_space)
         elif self.robot_type == "libero_franka":

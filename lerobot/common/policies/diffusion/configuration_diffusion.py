@@ -117,6 +117,11 @@ class DiffusionConfig(PreTrainedConfig):
     # Set to (horizon - n_action_steps) for last 8, or
     # ((horizon - n_action_steps) // 2) for middle 8.
     action_start_idx: int | None = None
+    # When True, skip the first (n_action_steps // 2) actions in the predicted chunk and
+    # execute the following n_action_steps actions instead.  This lets the policy "look ahead"
+    # by half an execution horizon before committing, which can reduce compounding errors on
+    # the executed prefix at the cost of acting slightly later in the predicted trajectory.
+    drop_half_horizon: bool = False
 
     normalization_mapping: dict[str, NormalizationMode] = field(
         default_factory=lambda: {
@@ -248,6 +253,15 @@ class DiffusionConfig(PreTrainedConfig):
                 "The horizon should be an integer multiple of the downsampling factor (which is determined "
                 f"by `len(down_dims)`). Got {self.horizon=} and {self.down_dims=}"
             )
+
+        if self.drop_half_horizon:
+            half = self.n_action_steps // 2
+            required = (self.n_obs_steps - 1) + half + self.n_action_steps
+            if required > self.horizon:
+                raise ValueError(
+                    f"`drop_half_horizon=True` requires horizon >= {required} "
+                    f"(n_obs_steps-1 + n_action_steps//2 + n_action_steps), but got {self.horizon=}."
+                )
 
     def get_optimizer_preset(self) -> AdamConfig:
         return AdamConfig(

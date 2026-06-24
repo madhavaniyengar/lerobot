@@ -329,6 +329,7 @@ def encode_video_frames(
     g: int | None = 2,
     crf: int | None = 30,
     fast_decode: int = 0,
+    preset: str | None = "ultrafast",
     log_level: int | None = av.logging.ERROR,
     overwrite: bool = False,
 ) -> None:
@@ -349,11 +350,14 @@ def encode_video_frames(
         )
         pix_fmt = "yuv420p"
 
-    # Get input frames
-    template = "frame_" + ("[0-9]" * 6) + ".png"
-    input_list = sorted(
-        glob.glob(str(imgs_dir / template)), key=lambda x: int(x.split("_")[-1].split(".")[0])
-    )
+    # Get input frames — support both png and jpg intermediates
+    for ext in ("png", "jpg"):
+        template = "frame_" + ("[0-9]" * 6) + f".{ext}"
+        input_list = sorted(
+            glob.glob(str(imgs_dir / template)), key=lambda x: int(x.split("_")[-1].split(".")[0])
+        )
+        if input_list:
+            break
 
     # Define video output frame size (assuming all input frames are the same size)
     if len(input_list) == 0:
@@ -369,6 +373,11 @@ def encode_video_frames(
 
     if crf is not None:
         video_options["crf"] = str(crf)
+
+    # preset controls encode speed vs compression tradeoff; ultrafast is ~10x faster than medium
+    # with negligible quality difference for robot teleoperation recordings
+    if preset is not None and vcodec in ["h264", "hevc"]:
+        video_options["preset"] = preset
 
     if fast_decode:
         key = "svtav1-params" if vcodec == "libsvtav1" else "tune"

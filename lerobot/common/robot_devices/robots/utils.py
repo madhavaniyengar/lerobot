@@ -18,6 +18,7 @@ from lerobot.common.robot_devices.robots.configs import (
     AlohaRobotConfig,
     DroidRobotConfig,
     DummyRobotConfig,
+    Franka2CamRobotConfig,
     FrankaLeapRobotConfig,
     KochBimanualRobotConfig,
     KochRobotConfig,
@@ -68,6 +69,8 @@ def make_robot_config(robot_type: str, **kwargs) -> RobotConfig:
         return So101RobotConfig(**kwargs)
     elif robot_type == "droid":
         return DroidRobotConfig(**kwargs)
+    elif robot_type == "franka_2cam":
+        return Franka2CamRobotConfig(**kwargs)
     elif robot_type == "franka_leap":
         return FrankaLeapRobotConfig(**kwargs)
     elif robot_type == "stretch":
@@ -83,6 +86,10 @@ def make_robot_from_config(config: RobotConfig):
         from lerobot.common.robot_devices.robots.dummy import DummyRobot
 
         return DummyRobot(config)
+    elif isinstance(config, Franka2CamRobotConfig):
+        from lerobot.common.robot_devices.robots.franka_2cam import Franka2CamRobot
+
+        return Franka2CamRobot(config)
     elif isinstance(config, DroidRobotConfig):
         from lerobot.common.robot_devices.robots.droid import DroidRobot
 

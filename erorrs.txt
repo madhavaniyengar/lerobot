@@ -1,0 +1,119 @@
+(lerobot) (base) madhavan@torsion:~/lerobot$ pixi run python lerobot/scripts/control_robot.py   --robot.type=franka_2cam   --control.type=record   --control.single_task="test"   --control.repo_id=madhavan/franka_2cam_stick   --control.root=/home/madhavan/lerobot/data/franka_2cam_stick   --control.num_episodes=1   --control.episode_time_s=15   --control.warmup_time_s=3   --control.reset_time_s=5   --control.fps=30   --control.push_to_hub=false   --robot.use_eef=true
+INFO 2026-06-14 14:35:58 ol_robot.py:451 {'control': {'display_data': False,
+             'episode_time_s': 15,
+             'fps': 30,
+             'num_episodes': 1,
+             'num_image_writer_processes': 0,
+             'num_image_writer_threads_per_camera': 4,
+             'play_sounds': True,
+             'policy': None,
+             'private': False,
+             'push_to_hub': False,
+             'repo_id': 'madhavan/franka_2cam_stick',
+             'reset_time_s': 5,
+             'resume': False,
+             'root': '/home/madhavan/lerobot/data/franka_2cam_stick',
+             'single_task': 'test',
+             'tags': None,
+             'video': True,
+             'warmup_time_s': 3},
+ 'robot': {'cameras': {'cam_azure_kinect_front': {'channels': 3,
+                                                  'color_mode': 'rgb',
+                                                  'device_id': 0,
+                                                  'fps': 15,
+                                                  'height': 720,
+                                                  'mock': False,
+                                                  'rotation': None,
+                                                  'subordinate_delay_off_master_usec': 200,
+                                                  'use_depth': False,
+                                                  'use_ir': False,
+                                                  'use_point_cloud': False,
+                                                  'use_transformed_color': False,
+                                                  'use_transformed_depth': True,
+                                                  'width': 1280,
+                                                  'wired_sync_mode': None},
+                       'cam_azure_kinect_left': {'channels': 3,
+                                                 'color_mode': 'rgb',
+                                                 'device_id': 1,
+                                                 'fps': 15,
+                                                 'height': 720,
+                                                 'mock': False,
+                                                 'rotation': None,
+                                                 'subordinate_delay_off_master_usec': 200,
+                                                 'use_depth': False,
+                                                 'use_ir': False,
+                                                 'use_point_cloud': False,
+                                                 'use_transformed_color': False,
+                                                 'use_transformed_depth': True,
+                                                 'width': 1280,
+                                                 'wired_sync_mode': None}},
+           'deoxys_controller_cfg_file': 'lerobot/common/robot_devices/robots/franka_configs/joint-impedance-controller.yml',
+           'deoxys_controller_type': 'JOINT_IMPEDANCE',
+           'deoxys_general_cfg_file': 'lerobot/common/robot_devices/robots/franka_configs/charmander_franka_2cam.yml',
+           'gello_gripper_close_degrees': 240.74414,
+           'gello_gripper_joint_id': 8,
+           'gello_gripper_open_degrees': 282.54414,
+           'gello_joint_ids': (1, 2, 3, 4, 5, 6, 7),
+           'gello_joint_offsets': (4.71238898038469,
+                                   0.0,
+                                   6.283185307179586,
+                                   3.141592653589793,
+                                   3.141592653589793,
+                                   3.141592653589793,
+                                   0.0),
+           'gello_joint_signs': (1, 1, 1, 1, 1, -1, 1),
+           'gello_port': None,
+           'gripper_close_action': 0.0,
+           'gripper_open_action': 1.0,
+           'gripper_threshold': 0.5,
+           'mapping_coefficients': (0.8, -0.8, 0.8, 0.8, 0.8, 0.8, 0.8),
+           'max_safe_joint_delta': 0.3,
+           'mock': False,
+           'robotiq_port': None,
+           'skip_gello_calibration': False,
+           'use_eef': True}}
+INFO 2026-06-14 14:35:58 ol_robot.py:255 Dataset directory already exists at '/home/madhavan/lerobot/data/franka_2cam_stick'. Auto-resuming data collection.
+pybullet build time: Jan 29 2025 23:17:20
+Waiting for Franka state buffer...
+Franka state buffer ready.
+Auto-detected GELLO on /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0
+attempting to connect to port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0
+Attempting to initialize Dynamixel driver (attempt 1/3)
+Failed to initialize Dynamixel driver: [Errno 13] could not open port /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0: [Errno 13] Permission denied: '/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0'
+Retrying in 2 seconds...
+Attempting to initialize Dynamixel driver (attempt 2/3)
+Failed to initialize Dynamixel driver: [Errno 13] could not open port /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0: [Errno 13] Permission denied: '/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0'
+Retrying in 2 seconds...
+Attempting to initialize Dynamixel driver (attempt 3/3)
+Failed to initialize Dynamixel driver: [Errno 13] could not open port /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0: [Errno 13] Permission denied: '/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT8ISROR-if00-port0'
+Max retries reached
+Using fake Dynamixel driver
+
+[Franka2CamRobot] Position the GELLO at your desired starting pose.
+Press Enter when ready — the Franka will move to match...^X^CTraceback (most recent call last):
+  File "/home/madhavan/lerobot/lerobot/scripts/control_robot.py", line 480, in <module>
+    control_robot()
+  File "/home/madhavan/lerobot/lerobot/configs/parser.py", line 227, in wrapper_inner
+    response = fn(cfg, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/madhavan/lerobot/lerobot/scripts/control_robot.py", line 464, in control_robot
+    record(robot, cfg.control)
+  File "/home/madhavan/lerobot/lerobot/common/robot_devices/utils.py", line 38, in wrapper
+    return func(robot, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/madhavan/lerobot/lerobot/scripts/control_robot.py", line 319, in record
+    robot.connect()
+  File "/home/madhavan/lerobot/lerobot/common/robot_devices/robots/franka_2cam.py", line 169, in connect
+    self.run_calibration()
+  File "/home/madhavan/lerobot/lerobot/common/robot_devices/robots/franka_2cam.py", line 227, in run_calibration
+    input(
+KeyboardInterrupt
+^C^C
+(lerobot) (base) madhavan@torsion:~/lerobot$ ^C
+(lerobot) (base) madhavan@torsion:~/lerobot$ ^C
+(lerobot) (base) madhavan@torsion:~/lerobot$ ^C
+(lerobot) (base) madhavan@torsion:~/lerobot$ 
+
+
+
+

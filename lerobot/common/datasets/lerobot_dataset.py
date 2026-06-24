@@ -790,6 +790,9 @@ class LeRobotDataset(torch.utils.data.Dataset):
         fpath = DEFAULT_IMAGE_PATH.format(
             image_key=image_key, episode_index=episode_index, frame_index=frame_index
         )
+        # depth keys hold 16-bit data; JPEG cannot represent that, keep png
+        if "depth" in image_key:
+            fpath = fpath.replace(".jpg", ".png")
         return self.root / fpath
 
     def _save_image(self, image: torch.Tensor | np.ndarray | PIL.Image.Image, fpath: Path) -> None:
@@ -1002,11 +1005,15 @@ class LeRobotDataset(torch.utils.data.Dataset):
                 episode_index=episode_index, image_key=key, frame_index=0
             ).parent
 
-            # Get input frames
-            template = "frame_" + ("[0-9]" * 6) + ".png"
-            input_list = sorted(
-                glob.glob(str(img_dir / template)), key=lambda x: int(x.split("_")[-1].split(".")[0])
-            )
+            # Get input frames — support both jpg (default) and png (depth/legacy)
+            input_list = []
+            for ext in ("jpg", "png"):
+                template = "frame_" + ("[0-9]" * 6) + f".{ext}"
+                input_list = sorted(
+                    glob.glob(str(img_dir / template)), key=lambda x: int(x.split("_")[-1].split(".")[0])
+                )
+                if input_list:
+                    break
             if len(input_list) == 0:
                 raise FileNotFoundError(f"No images found in {img_dir}.")
             dummy_image = PIL.Image.open(input_list[0])

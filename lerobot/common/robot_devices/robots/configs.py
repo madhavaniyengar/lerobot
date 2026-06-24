@@ -23,6 +23,7 @@ from lerobot.common.robot_devices.cameras.configs import (
     CameraConfig,
     IntelRealSenseCameraConfig,
     OpenCVCameraConfig,
+    ZedCameraConfig,
 )
 from lerobot.common.robot_devices.motors.configs import (
     DynamixelMotorsBusConfig,
@@ -618,6 +619,69 @@ class DroidRobotConfig(RobotConfig):
     skip_gello_calibration: bool = False
 
     mock: bool = False
+
+
+@RobotConfig.register_subclass("franka_2cam")
+@dataclass
+class Franka2CamRobotConfig(DroidRobotConfig):
+    # Franka Panda with stock Franka hand, GELLO leader, deoxys controller,
+    # and two Azure Kinects mounted front + left.
+    gello_joint_offsets: tuple[float, ...] = (
+        3 * 3.141592653589793 / 2,
+        0 * 3.141592653589793 / 2,
+        4 * 3.141592653589793 / 2,
+        2 * 3.141592653589793 / 2 + 0.35,
+        2 * 3.141592653589793 / 2,
+        2 * 3.141592653589793 / 2,
+        -0.5 * 3.141592653589793 / 2,
+    )
+    gello_joint_signs: tuple[int, ...] = (1, 1, 1, 1, 1, -1, 1)
+    gello_gripper_joint_id: int = 8
+    gello_gripper_open_degrees: int = 272
+    gello_gripper_close_degrees: int = 234
+
+    # pi = 3.1415926
+    # gello_joint_offsets: tuple[float, ...] = (
+    #     4*pi/2 - 0.4555,
+    #     0*pi/2 - 0.1581,
+    #     3*pi/2 + 0.2907,
+    #     2*pi/2 + 0.6177,
+    #     2*pi/2 + 0.1062,
+    #     2*pi/2 + 0.6240,  # sign is -1 here
+    #     -1*pi/2 + 0.5557,
+    # )
+    # gello_gripper_open_degrees: float = 282.54414
+    # gello_gripper_close_degrees: float = 240.74414
+
+    deoxys_general_cfg_file: str = "lerobot/common/robot_devices/robots/franka_configs/charmander_franka_2cam.yml"
+
+    # "cam_wrist": {"type": "zed", "serial_number": "10296178", "fps": 30, "width": 1280, "height": 720, "use_depth": false}
+
+    cameras: dict[str, CameraConfig] = field(
+        default_factory=lambda: {
+            "cam_azure_kinect_front": AzureKinectCameraConfig(
+                device_id=0,
+                fps=15, # Can use 30 fps, but would give buffer overload errors
+                width=1280,
+                height=720,
+                use_transformed_depth=True,
+            ),
+            "cam_azure_kinect_left": AzureKinectCameraConfig(
+                device_id=1,
+                fps=15, # This can handle 30 fps, but to match with cam_0 we use 15 
+                width=1280,
+                height=720,
+                use_transformed_depth=True,
+            ),
+            "cam_wrist": ZedCameraConfig(
+                    serial_number=10296178,
+                    fps=15,
+                    width=1280,
+                    height=720,
+                    use_depth=False,
+            ),
+        }
+    )
 
 
 @RobotConfig.register_subclass("franka_leap")

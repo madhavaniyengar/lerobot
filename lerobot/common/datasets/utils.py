@@ -54,7 +54,7 @@ TASKS_PATH = "meta/tasks.jsonl"
 
 DEFAULT_VIDEO_PATH = "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4"
 DEFAULT_PARQUET_PATH = "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet"
-DEFAULT_IMAGE_PATH = "images/{image_key}/episode_{episode_index:06d}/frame_{frame_index:06d}.png"
+DEFAULT_IMAGE_PATH = "images/{image_key}/episode_{episode_index:06d}/frame_{frame_index:06d}.jpg"
 
 DATASET_CARD_TEMPLATE = """
 ---
@@ -258,9 +258,16 @@ def load_depth_image_as_numpy(
     fpath: str | Path, channel_first: bool = True
 ) -> np.ndarray:
     img = PILImage.open(fpath)
-    img_array = np.array(img, dtype=np.uint16)[:, :, None]
+    img_array = np.array(img, dtype=np.uint16)
+    if img_array.ndim == 2:
+        img_array = img_array[:, :, None]
+    elif img_array.ndim == 3:
+        img_array = img_array[:, :, :1]
+    else:
+        raise ValueError(f"Expected a 2D or 3D depth image, got shape {img_array.shape} for {fpath}.")
+    img_array = img_array.astype(np.float32)
     if channel_first:  # (H, W, C) -> (C, H, W)
-        img_array = np.transpose(img_array, (2, 0, 1)).astype(np.float32)
+        img_array = np.transpose(img_array, (2, 0, 1))
     img_array /= 1000.0 # convert to meters
     return img_array
 

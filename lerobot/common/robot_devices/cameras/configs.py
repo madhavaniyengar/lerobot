@@ -333,7 +333,9 @@ class ZedCameraConfig(CameraConfig):
         feature_specs = {}
         base = f"observation.images.{cam_key}"
 
-        feature_specs[base] = {
+        # Use .color suffix to match AzureKinectCameraConfig convention and the
+        # {"color": tensor} wrapping applied by _read_cameras() in franka_2cam.py
+        feature_specs[f"{base}.color"] = {
             "shape": (self.height, self.width, self.channels),
             "names": ["height", "width", "channels"],
             "info": f"{self.color_mode.upper()} color image",

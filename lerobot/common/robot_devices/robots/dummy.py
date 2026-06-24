@@ -6,6 +6,7 @@ with real Droid datasets.
 """
 
 import time
+from threading import Thread
 
 import torch
 
@@ -89,28 +90,67 @@ class DummyRobot:
         if self.is_connected:
             raise RuntimeError("DummyRobot is already connected.")
 
-        from threading import Thread
-
         azure_kinect_cameras = []
-        for name, camera in self.cameras.items():
-            if camera.__class__.__name__ == "AzureKinectCamera":
-                camera.connect(start_cameras=False)
-                azure_kinect_cameras.append(camera)
-            else:
-                camera.connect()
+        try:
+            for camera in self.cameras.values():
+                if camera.__class__.__name__ == "AzureKinectCamera":
+                    camera.connect(start_cameras=False)
+                    azure_kinect_cameras.append(camera)
+                else:
+                    camera.connect()
 
-        if len(azure_kinect_cameras) > 0:
-            def start_camera(cam):
-                cam.start()
-
-            threads = [Thread(target=start_camera, args=(cam,)) for cam in azure_kinect_cameras]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join()
+            if len(azure_kinect_cameras) > 0:
+                self._start_azure_kinect_cameras(azure_kinect_cameras)
+        except Exception:
+            self._disconnect_cameras()
+            raise
 
         self.is_connected = True
         print("[DummyRobot] Connected cameras only (no robot hardware).")
+
+    def _start_azure_kinect_cameras(self, cameras):
+        subordinates = [cam for cam in cameras if cam.wired_sync_mode == "subordinate"]
+        masters = [cam for cam in cameras if cam.wired_sync_mode == "master"]
+        standalone = [cam for cam in cameras if cam.wired_sync_mode is None]
+
+        for camera_group in (subordinates, masters, standalone):
+            self._start_azure_kinect_camera_group(camera_group)
+
+    def _start_azure_kinect_camera_group(self, cameras):
+        if len(cameras) == 0:
+            return
+
+        camera_start_errors = []
+
+        def start_camera(cam):
+            try:
+                cam.start()
+            except Exception as exc:
+                camera_start_errors.append((cam, exc))
+
+        threads = [Thread(target=start_camera, args=(cam,)) for cam in cameras]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        if camera_start_errors:
+            errors = ", ".join(
+                f"AzureKinectCamera({cam.device_id}): {exc}" for cam, exc in camera_start_errors
+            )
+            raise RuntimeError(f"Failed to start Azure Kinect camera(s): {errors}")
+
+    def _disconnect_cameras(self):
+        for camera in self.cameras.values():
+            if getattr(camera, "is_connected", False):
+                camera.disconnect()
+            elif (
+                camera.__class__.__name__ == "AzureKinectCamera"
+                and getattr(camera, "camera", None) is not None
+            ):
+                if getattr(camera.camera, "opened", False):
+                    camera.camera.close()
+                camera.camera = None
 
     def run_calibration(self):
         pass
@@ -187,8 +227,7 @@ class DummyRobot:
     def disconnect(self):
         if not self.is_connected:
             return
-        for name in self.cameras:
-            self.cameras[name].disconnect()
+        self._disconnect_cameras()
         self.is_connected = False
 
     def __del__(self):

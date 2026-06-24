@@ -548,6 +548,8 @@ class DiffusionModel(nn.Module):
             start = self.config.action_start_idx
         else:
             start = n_obs_steps - 1
+            if self.config.drop_half_horizon:
+                start += self.config.n_action_steps // 2
 
         end = start + self.config.n_action_steps
         actions = actions[:, start:end]

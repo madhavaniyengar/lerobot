@@ -365,13 +365,17 @@ def record(
             dataset.clear_episode_buffer()
             continue
 
+        episode_index = dataset.num_episodes
+        log_say(f"Saving episode {episode_index}", cfg.play_sounds)
         dataset.save_episode()
+        log_say(f"Episode {episode_index} done", cfg.play_sounds)
         recorded_episodes += 1
 
         if events["stop_recording"]:
             break
 
         input("Press Enter to continue...")
+        print()
 
     log_say("Stop recording", cfg.play_sounds, blocking=True)
     stop_recording(robot, listener, cfg.display_data)

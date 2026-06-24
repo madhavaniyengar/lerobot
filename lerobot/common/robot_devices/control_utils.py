@@ -239,7 +239,7 @@ def add_eef_pose(robot, real_joints):
     if robot.robot_type == "aloha":
         eef_pose, eef_pose_se3 = forward_kinematics(ALOHA_CONFIGURATION, real_joints)
         eef_pose = torch.cat([eef_pose, real_joints[-1][None]], axis=0).float()
-    elif robot.robot_type == "droid":
+    elif robot.robot_type in ["droid", "franka_2cam"]:
         eef_rot, eef_pos = robot.robot_interface.last_eef_rot_and_pos
         rot_6d = transforms.matrix_to_rotation_6d(torch.from_numpy(eef_rot[None])).squeeze()
         trans = torch.from_numpy(eef_pos.squeeze())
@@ -276,7 +276,7 @@ def log_control_info(robot: Robot, dt_s, episode_index=None, frame_index=None, f
     log_dt("dt", dt_s)
 
     # TODO(aliberts): move robot-specific logs logic in robot.print_logs()
-    if robot.robot_type not in ["stretch", "droid", "dummy", "franka_leap"]:
+    if robot.robot_type not in ["stretch", "droid", "franka_2cam", "dummy", "franka_leap"]:
         for name in robot.leader_arms:
             key = f"read_leader_{name}_pos_dt_s"
             if key in robot.logs:
@@ -657,13 +657,12 @@ def control_loop(
                 observation[_k] = _v
 
         if dataset is not None:
-            # Drop visualization-only camera streams (raw depth and point clouds).
-            # These exist because we enabled use_depth/use_point_cloud on the Kinect for
-            # rerun viz, but the dataset feature schema doesn't include them and
-            # validate_frame would reject the frame as having "extra features".
+            # Persist only observation keys declared in the dataset schema. This
+            # keeps configured streams such as transformed_depth, while dropping
+            # visualization-only extras that would fail validate_frame.
             persisted_obs = {
                 k: v for k, v in observation.items()
-                if not (k.endswith(".point_cloud") or k.endswith(".depth") or k.endswith(".transformed_depth"))
+                if k in dataset.features
             }
             frame = {**persisted_obs, **action, "task": single_task}
             dataset.add_frame(frame)

@@ -1,0 +1,29 @@
+dataset:
+  repo_id: local/franka_2cam_zed_shifted
+  root: /home/madhavan/lerobot/data/franka_2cam_zed_shifted
+  use_imagenet_stats: true
+
+policy:
+  type: diffusion
+  robot_type: droid
+  action_space: joint
+  crop_shape: [600, 600]
+  calibration_json: lerobot/scripts/franka_2cam_calibration/calibration_franka_2cam.json
+  normalization_mapping:
+    VISUAL: MEAN_STD
+    STATE: MEAN_STD
+    ACTION: MEAN_STD
+
+output_dir: outputs/train/franka_2cam_joint_diffusion
+job_name: franka_2cam_joint_diffusion
+steps: 100000
+batch_size: 8
+# Two diffusion jobs share this 32-core/64-thread host. The default of 32
+# workers per job oversubscribes the CPUs and starves both GPUs during video
+# decoding. Leave headroom for the trainer processes and decode-library threads.
+num_workers: 14
+# Keep more decoded batches ready to absorb variation in random video seeks.
+prefetch_factor: 4
+
+wandb:
+  enable: true

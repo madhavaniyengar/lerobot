@@ -1,0 +1,21 @@
+robot:
+  type: franka_2cam
+  deoxys_general_cfg_file: lerobot/common/robot_devices/robots/franka_configs/charmander_franka_2cam.yml
+  cameras:
+    cam_azure_kinect_front:
+      type: azurekinect
+      device_id: 0
+      fps: 15
+      width: 1280
+      height: 720
+      use_transformed_depth: true
+    cam_azure_kinect_left:
+      type: azurekinect
+      device_id: 1
+      fps: 15
+      width: 1280
+      height: 720
+      use_transformed_depth: true
+
+policy:
+  calibration_json: lerobot/scripts/franka_2cam_calibration/calibration_franka_2cam.json

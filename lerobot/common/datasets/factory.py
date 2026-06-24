@@ -25,6 +25,7 @@ from lerobot.common.datasets.lerobot_dataset import (
     MultiLeRobotDataset,
 )
 from lerobot.common.datasets.transforms import ImageTransforms
+from lerobot.common.datasets.zarr_dataset import ZarrLeRobotDataset
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.configs.train import TrainPipelineConfig
 
@@ -58,7 +59,7 @@ def resolve_delta_timestamps(
             delta_timestamps[key] = [i / ds_meta.fps for i in cfg.reward_delta_indices]
         if key.startswith("action") and cfg.action_delta_indices is not None:
             delta_timestamps[key] = [i / ds_meta.fps for i in cfg.action_delta_indices]
-        if key.startswith("observation.") and cfg.observation_delta_indices is not None:
+        if key.startswith("observation.") and "depth" not in key and cfg.observation_delta_indices is not None:
             delta_timestamps[key] = [i / ds_meta.fps for i in cfg.observation_delta_indices]
 
     if len(delta_timestamps) == 0:
@@ -99,16 +100,21 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
             # or the dict contains a single key matching the repo_id
             episodes = episodes.get(cfg.dataset.repo_id) if cfg.dataset.repo_id in episodes else None
 
-        dataset = LeRobotDataset(
-            cfg.dataset.repo_id,
-            root=cfg.dataset.root,
-            episodes=episodes,
-            delta_timestamps=delta_timestamps,
-            image_transforms=image_transforms,
-            revision=cfg.dataset.revision,
-            video_backend=cfg.dataset.video_backend,
-            tolerance_s=cfg.dataset.tolerance_s
-        )
+        dataset_cls = ZarrLeRobotDataset if cfg.dataset.use_zarr else LeRobotDataset
+        dataset_kwargs = {
+            "repo_id": cfg.dataset.repo_id,
+            "root": cfg.dataset.root,
+            "episodes": episodes,
+            "delta_timestamps": delta_timestamps,
+            "image_transforms": image_transforms,
+            "revision": cfg.dataset.revision,
+            "tolerance_s": cfg.dataset.tolerance_s,
+        }
+        if cfg.dataset.use_zarr:
+            dataset_kwargs["zarr_path"] = cfg.dataset.zarr_path
+        else:
+            dataset_kwargs["video_backend"] = cfg.dataset.video_backend
+        dataset = dataset_cls(**dataset_kwargs)
     else:
         # Multiple repo_ids provided - use MultiHomogeneousLeRobotDataset by default
         use_homogeneous = getattr(cfg.dataset, 'use_homogeneous_dataset', True)
@@ -128,16 +134,21 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
                     else:
                         episodes = cfg.dataset.episodes
 
-                ds = LeRobotDataset(
-                    repo_id,
-                    root=cfg.dataset.root,
-                    episodes=episodes,
-                    delta_timestamps=delta_timestamps,
-                    image_transforms=image_transforms,
-                    revision=cfg.dataset.revision,
-                    video_backend=cfg.dataset.video_backend,
-                    tolerance_s=cfg.dataset.tolerance_s
-                )
+                dataset_cls = ZarrLeRobotDataset if cfg.dataset.use_zarr else LeRobotDataset
+                dataset_kwargs = {
+                    "repo_id": repo_id,
+                    "root": cfg.dataset.root,
+                    "episodes": episodes,
+                    "delta_timestamps": delta_timestamps,
+                    "image_transforms": image_transforms,
+                    "revision": cfg.dataset.revision,
+                    "tolerance_s": cfg.dataset.tolerance_s,
+                }
+                if cfg.dataset.use_zarr:
+                    dataset_kwargs["zarr_path"] = cfg.dataset.zarr_path
+                else:
+                    dataset_kwargs["video_backend"] = cfg.dataset.video_backend
+                ds = dataset_cls(**dataset_kwargs)
                 datasets.append(ds)
 
             dataset = MultiHomogeneousLeRobotDataset(datasets)

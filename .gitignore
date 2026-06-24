@@ -178,3 +178,11 @@ cython_debug/
 
 
 slurm_logs/
+viz_output/
+WiLoR/
+extradata
+errors.txt
+*.npy
+.claude/
+pixi.lock
+third_party/

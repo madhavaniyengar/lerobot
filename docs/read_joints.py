@@ -1,7 +1,7 @@
 """Read and print joint positions from both GELLO and Franka in a loop.
 
 Usage:
-    python docs/read_joints.py --config lerobot/common/robot_devices/robots/franka_configs/charmander_droid.yml
+    python docs/read_joints.py --robot-type franka_2cam
 
 Use this to verify that GELLO joint offsets are correct. When the GELLO and
 Franka are physically in the same pose, their printed joint values should match.
@@ -16,15 +16,20 @@ import numpy as np
 
 def main():
     parser = argparse.ArgumentParser(description="Read GELLO and Franka joint positions.")
-    parser.add_argument("--config", type=str, required=True, help="Path to deoxys YAML config file")
+    parser.add_argument("--robot-type", type=str, default="franka_2cam", help="Robot config type to use.")
+    parser.add_argument("--config", type=str, default=None, help="Optional path to deoxys YAML config file.")
     args = parser.parse_args()
 
     from deoxys.franka_interface import FrankaInterface
     from gello.robots.dynamixel import DynamixelRobot
+    from lerobot.common.robot_devices.robots.utils import make_robot_config
+
+    robot_cfg = make_robot_config(args.robot_type)
+    deoxys_config = args.config or robot_cfg.deoxys_general_cfg_file
 
     # --- Franka setup ---
     interface = FrankaInterface(
-        args.config,
+        deoxys_config,
         use_visualizer=False,
     )
     print("Waiting for Franka state buffer...")
@@ -32,36 +37,20 @@ def main():
         time.sleep(0.1)
     print("Franka connected.")
 
-    # --- GELLO setup (uses defaults from DroidRobotConfig), modify as necessary ---
-    gello_joint_ids: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7)
-    gello_joint_offsets: tuple[float, ...] = (
-        3 * 3.141592653589793 / 2,
-        0 * 3.141592653589793 / 2,
-        4 * 3.141592653589793 / 2,
-        2 * 3.141592653589793 / 2,
-        2 * 3.141592653589793 / 2,
-        2 * 3.141592653589793 / 2,
-        0 * 3.141592653589793 / 2,
-    )
-    gello_joint_signs: tuple[int, ...] = (1, 1, 1, 1, 1, -1, 1)
-    gello_gripper_joint_id: int = 8
-    gello_gripper_open_degrees: int = 195
-    gello_gripper_close_degrees: int = 152
-
     matches = [p for p in glob.glob("/dev/serial/by-id/*") if "Serial_Converter" in p]
     if len(matches) != 1:
         raise ValueError(f"Expected exactly one GELLO serial device, found {matches}.")
     port = matches[0]
     gello = DynamixelRobot(
-        joint_ids=list(gello_joint_ids),
-        joint_offsets=list(gello_joint_offsets),
+        joint_ids=list(robot_cfg.gello_joint_ids),
+        joint_offsets=list(robot_cfg.gello_joint_offsets),
         real=True,
-        joint_signs=list(gello_joint_signs),
+        joint_signs=list(robot_cfg.gello_joint_signs),
         port=port,
         gripper_config=(
-            gello_gripper_joint_id,
-            gello_gripper_open_degrees,
-            gello_gripper_close_degrees,
+            robot_cfg.gello_gripper_joint_id,
+            robot_cfg.gello_gripper_open_degrees,
+            robot_cfg.gello_gripper_close_degrees,
         ),
     )
     print("GELLO connected.")

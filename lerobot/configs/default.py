@@ -38,6 +38,8 @@ class DatasetConfig:
     use_imagenet_stats: bool = True
     video_backend: str = field(default_factory=get_safe_default_codec)
     tolerance_s: float = 4e-4
+    use_zarr: bool = False
+    zarr_path: str | None = None
 
 @dataclass
 class WandBConfig:

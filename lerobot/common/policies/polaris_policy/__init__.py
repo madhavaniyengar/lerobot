@@ -14,8 +14,15 @@ from lerobot.common.policies.polaris_policy.ghost.ghost_client import (
     GhostConfig,
     GhostClient,
 )
-from lerobot.common.policies.polaris_policy.xskill.xskill_client import (
-    XSkillConfig,
-    XSkillClient,
+from lerobot.common.policies.polaris_policy.egoverse.egoverse_client import (
+    EgoVerseConfig,
+    EgoVersePolicyClient,
 )
-
+try:
+    from lerobot.common.policies.polaris_policy.xskill.xskill_client import (
+        XSkillConfig,
+        XSkillClient,
+    )
+except ModuleNotFoundError:
+    XSkillConfig = None
+    XSkillClient = None

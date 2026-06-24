@@ -80,6 +80,10 @@ def get_policy_class(name: str) -> PreTrainedPolicy:
         from lerobot.common.policies.polaris_policy.ghost.ghost_client import GhostClient
 
         return GhostClient
+    elif name == "egoverse":
+        from lerobot.common.policies.polaris_policy.egoverse.egoverse_client import EgoVersePolicyClient
+
+        return EgoVersePolicyClient
     elif name == "xskill":
         from lerobot.common.policies.polaris_policy.xskill.xskill_client import XSkillClient
 
@@ -115,6 +119,9 @@ def make_policy_config(policy_type: str, **kwargs) -> PreTrainedConfig:
     elif policy_type == "ghost":
         from lerobot.common.policies.polaris_policy.ghost.ghost_client import GhostConfig
         return GhostConfig(**kwargs)
+    elif policy_type == "egoverse":
+        from lerobot.common.policies.polaris_policy.egoverse.egoverse_client import EgoVerseConfig
+        return EgoVerseConfig(**kwargs)
     elif policy_type == "xskill":
         from lerobot.common.policies.polaris_policy.xskill.xskill_client import XSkillConfig
 
