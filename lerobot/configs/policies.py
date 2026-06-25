@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import abc
+import ast
 import logging
 import os
 from dataclasses import dataclass, field
@@ -200,9 +201,14 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):
                 setattr(cfg, key, int(val))
             elif isinstance(current, float):
                 setattr(cfg, key, float(val))
+            elif isinstance(current, (list, tuple)):
+                parsed = ast.literal_eval(val)
+                setattr(cfg, key, type(current)(parsed))
             elif current is None:
-                # Type unknown — store as string; caller can coerce further if needed
-                setattr(cfg, key, val)
+                try:
+                    setattr(cfg, key, ast.literal_eval(val))
+                except (ValueError, SyntaxError):
+                    setattr(cfg, key, val)
             else:
                 setattr(cfg, key, val)
         return cfg

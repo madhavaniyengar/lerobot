@@ -14,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from dataclasses import dataclass, field
 
 from lerobot.common.optim.optimizers import AdamConfig
@@ -111,7 +112,7 @@ class DiffusionConfig(PreTrainedConfig):
     # Inputs / output structure.
     n_obs_steps: int = 2
     horizon: int = 16
-    n_action_steps: int = 8
+    n_action_steps: int = 16
     # Start index into the predicted horizon for action execution.
     # Default (None) uses n_obs_steps-1 (standard behaviour = first n_action_steps).
     # Set to (horizon - n_action_steps) for last 8, or
@@ -145,6 +146,12 @@ class DiffusionConfig(PreTrainedConfig):
     # Vision backbone.
     vision_backbone: str = "resnet18"
     crop_shape: tuple[int, int] | None = None
+    # Kept for compatibility with older checkpoints. Current diffusion image preprocessing
+    # only crops; non-null resize values are ignored.
+    resize_shape: tuple[int, int] | None = None
+    # Eval-only live camera crop override. When >= 0 and crop_shape is set,
+    # predict_action crops cam_wrist with this left x pixel before policy inference.
+    eval_wrist_crop_left: int = -1
     crop_is_random: bool = True
     crop_jitter: int = 30
     pretrained_backbone_weights: str | None = None
@@ -262,6 +269,12 @@ class DiffusionConfig(PreTrainedConfig):
                     f"`drop_half_horizon=True` requires horizon >= {required} "
                     f"(n_obs_steps-1 + n_action_steps//2 + n_action_steps), but got {self.horizon=}."
                 )
+
+        if self.resize_shape is not None:
+            logging.warning(
+                "`resize_shape` is deprecated and ignored by DiffusionConfig. "
+                "Use `crop_shape` or add an explicit resize preprocessing step instead."
+            )
 
     def get_optimizer_preset(self) -> AdamConfig:
         return AdamConfig(

@@ -25,7 +25,7 @@ from lerobot.common.datasets.lerobot_dataset import (
     MultiLeRobotDataset,
 )
 from lerobot.common.datasets.transforms import ImageTransforms
-from lerobot.common.datasets.zarr_dataset import ZarrLeRobotDataset
+from lerobot.common.datasets.zarr_dataset import StandaloneZarrDataset, StandaloneZarrMeta, ZarrLeRobotDataset
 from lerobot.configs.policies import PreTrainedConfig
 from lerobot.configs.train import TrainPipelineConfig
 
@@ -88,6 +88,43 @@ def make_dataset(cfg: TrainPipelineConfig) -> LeRobotDataset | MultiLeRobotDatas
     image_transforms = (
         ImageTransforms(cfg.dataset.image_transforms) if cfg.dataset.image_transforms.enable else None
     )
+
+    if cfg.dataset.use_standalone_zarr:
+        import zarr as _zarr
+        if not cfg.dataset.zarr_path:
+            raise ValueError("dataset.zarr_path must be set when dataset.use_standalone_zarr=true")
+        _store = _zarr.open_group(cfg.dataset.zarr_path, mode="r")
+        _zarr_meta = StandaloneZarrMeta(
+            _store,
+            root=cfg.dataset.root,
+            repo_id=cfg.dataset.repo_id if isinstance(cfg.dataset.repo_id, str) else None,
+            revision=cfg.dataset.revision,
+        )
+        delta_timestamps = resolve_delta_timestamps(cfg.policy, _zarr_meta)
+        episodes = cfg.dataset.episodes
+        if isinstance(episodes, dict):
+            repo_id_str = cfg.dataset.repo_id if isinstance(cfg.dataset.repo_id, str) else None
+            episodes = episodes.get(repo_id_str) if repo_id_str else None
+        dataset = StandaloneZarrDataset(
+            zarr_path=cfg.dataset.zarr_path,
+            root=cfg.dataset.root,
+            repo_id=cfg.dataset.repo_id if isinstance(cfg.dataset.repo_id, str) else None,
+            episodes=episodes,
+            image_transforms=image_transforms,
+            delta_timestamps=delta_timestamps,
+            tolerance_s=cfg.dataset.tolerance_s,
+            revision=cfg.dataset.revision,
+        )
+        if cfg.dataset.use_imagenet_stats:
+            for key in dataset.meta.camera_keys:
+                if "depth" in key:
+                    continue
+                for stats_type, stats in IMAGENET_STATS.items():
+                    dataset.meta.stats.setdefault(key, {})[stats_type] = torch.tensor(
+                        stats, dtype=torch.float32
+                    )
+        return dataset
+
     if isinstance(cfg.dataset.repo_id, str):
         ds_meta = LeRobotDatasetMetadata(
             cfg.dataset.repo_id, root=cfg.dataset.root, revision=cfg.dataset.revision

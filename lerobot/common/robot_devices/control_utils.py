@@ -341,6 +341,23 @@ def predict_action(observation, policy, device, use_amp):
         for name in observation:
             if type(observation[name]) == str: observation[name] = [observation[name]]; continue
             if "image" in name:
+                crop_shape = getattr(policy.config, "crop_shape", None)
+                if crop_shape is not None and observation[name].ndim >= 2:
+                    crop_h, crop_w = [int(v) for v in crop_shape]
+                    height, width = observation[name].shape[:2]
+                    if crop_h > height or crop_w > width:
+                        raise ValueError(
+                            f"Eval crop {crop_h}x{crop_w} does not fit {name} with shape "
+                            f"{tuple(observation[name].shape)}."
+                        )
+                    top = (height - crop_h) // 2
+                    wrist_left = int(getattr(policy.config, "eval_wrist_crop_left", -1))
+                    if "cam_wrist" in name and wrist_left >= 0:
+                        left = wrist_left
+                    else:
+                        left = (width - crop_w) // 2
+                    left = max(0, min(left, width - crop_w))
+                    observation[name] = observation[name][top : top + crop_h, left : left + crop_w]
                 if observation[name].dtype == torch.uint8:
                     observation[name] = observation[name].type(torch.float32) / 255
                 elif observation[name].dtype == torch.uint16: # depth
@@ -685,6 +702,33 @@ def control_loop(
                     observation["observation.right_eef_pose"],
                     colors=[[150, 80, 80], [80, 150, 80], [80, 80, 150]],
                 )
+
+            # Full predicted trajectory visualization (updated on fresh inference only)
+            if policy is not None:
+                raw_traj = getattr(policy, "_last_action_trajectory", None)
+                if raw_traj is not None:
+                    # Always log the raw action chunk as a 2D tensor (n_steps × action_dim)
+                    # visible in rerun's TensorView as a matrix heatmap
+                    rr.log("pred_trajectory", rr.Tensor(raw_traj.numpy(), dim_names=["step", "dim"]))
+
+                eef_traj = getattr(policy, "_last_action_trajectory_eef", None)
+                if eef_traj is not None:
+                    positions = eef_traj[:, 6:9].numpy()  # (n_steps, 3) XYZ
+                    if np.any(positions != 0):
+                        # 3D line strip showing the predicted EEF path
+                        rr.log(
+                            "world/pred_trajectory",
+                            rr.LineStrips3D([positions], colors=[[255, 200, 0]]),
+                        )
+                        # Sparse orientation arrows along the trajectory
+                        stride = max(1, len(eef_traj) // 5)
+                        for _si, _pose in enumerate(eef_traj[::stride]):
+                            _log_eef_arrows(
+                                f"world/pred_traj_step_{_si * stride}",
+                                _pose,
+                                colors=[[200, 180, 0], [180, 200, 0], [180, 180, 0]],
+                                axis_len=0.04,
+                            )
 
             image_keys = [key for key in observation if "image" in key and not key.endswith(".point_cloud")]
             for key in image_keys:

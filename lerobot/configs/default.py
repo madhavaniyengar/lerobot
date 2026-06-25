@@ -40,6 +40,7 @@ class DatasetConfig:
     tolerance_s: float = 4e-4
     use_zarr: bool = False
     zarr_path: str | None = None
+    use_standalone_zarr: bool = False
 
 @dataclass
 class WandBConfig:

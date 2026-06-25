@@ -448,6 +448,26 @@ def _init_rerun(control_config: ControlConfig, session_name: str = "lerobot_cont
             memory_limit = os.getenv("LEROBOT_RERUN_MEMORY_LIMIT", "10%")
             rr.spawn(memory_limit=memory_limit)
 
+        # Send a blueprint that includes a 3D spatial view for world/ entities
+        # (EEF arrows and predicted trajectory live under world/ and are invisible
+        # without an explicit Spatial3DView in the layout).
+        rr.send_blueprint(
+            rr.blueprint.Blueprint(
+                rr.blueprint.Horizontal(
+                    rr.blueprint.Spatial3DView(name="3D World", origin="world"),
+                    rr.blueprint.Vertical(
+                        rr.blueprint.Tabs(
+                            rr.blueprint.TensorView(name="Pred Trajectory", origin="pred_trajectory"),
+                            rr.blueprint.TimeSeriesView(name="Sent Actions"),
+                        ),
+                    ),
+                    column_shares=[2, 1],
+                ),
+                rr.blueprint.SelectionPanel(state="collapsed"),
+                rr.blueprint.TimePanel(state="collapsed"),
+            )
+        )
+
 
 @parser.wrap()
 def control_robot(cfg: ControlPipelineConfig):

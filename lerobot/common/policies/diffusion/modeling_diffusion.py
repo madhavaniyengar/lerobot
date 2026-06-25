@@ -262,7 +262,7 @@ class DiffusionPolicy(PreTrainedPolicy):
             self._relative_action_reference_eef = current_obs.squeeze(0)  # (10,)
 
             actions = self.diffusion.generate_actions(batch)
-
+            breakpoint()
             # TODO(rcadene): make above methods return output dictionary?
             actions = self.unnormalize_outputs({self.act_key: actions})[self.act_key]
 
@@ -542,12 +542,12 @@ class DiffusionModel(nn.Module):
 
         # run sampling
         actions = self.conditional_sample(batch_size, global_cond=global_cond)
-
+        
         # Extract `n_action_steps` steps worth of actions (from the current observation).
         if self.config.action_start_idx is not None:
             start = self.config.action_start_idx
         else:
-            start = n_obs_steps - 1
+            start = 1
             if self.config.drop_half_horizon:
                 start += self.config.n_action_steps // 2
 
