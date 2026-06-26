@@ -331,6 +331,15 @@ def record(
     if has_method(robot, "teleop_safety_stop"):
         robot.teleop_safety_stop()
 
+    # Optional eval recorder: mirrors each eval episode to a zarr for quick
+    # visualisation with scripts/visualize_zarr_timestep.py.
+    eval_recorder = None
+    if policy is not None:
+        from lerobot.common.robot_devices.eval_recorder import EvalRecorder
+        eval_out = getattr(cfg, "eval_record_dir", None) or str(Path(cfg.root or ".") / "eval_recordings")
+        eval_recorder = EvalRecorder(eval_out)
+        logging.info(f"[EvalRecorder] saving eval rollouts to {eval_out}/eval.zarr")
+
     recorded_episodes = dataset.num_episodes
     while True:
         if recorded_episodes >= cfg.num_episodes:
@@ -354,6 +363,7 @@ def record(
             policy=policy,
             fps=cfg.fps,
             single_task=cfg.single_task,
+            eval_recorder=eval_recorder,
         )
 
         # Skip post-episode reset — environment reset is handled pre-episode above
@@ -363,11 +373,15 @@ def record(
             events["rerecord_episode"] = False
             events["exit_early"] = False
             dataset.clear_episode_buffer()
+            if eval_recorder is not None:
+                eval_recorder._episode_buf.clear()
             continue
 
         episode_index = dataset.num_episodes
         log_say(f"Saving episode {episode_index}", cfg.play_sounds)
         dataset.save_episode()
+        if eval_recorder is not None:
+            eval_recorder.save_episode()
         log_say(f"Episode {episode_index} done", cfg.play_sounds)
         recorded_episodes += 1
 

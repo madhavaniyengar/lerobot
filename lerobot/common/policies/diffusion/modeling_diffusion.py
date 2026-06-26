@@ -262,7 +262,7 @@ class DiffusionPolicy(PreTrainedPolicy):
             self._relative_action_reference_eef = current_obs.squeeze(0)  # (10,)
 
             actions = self.diffusion.generate_actions(batch)
-            breakpoint()
+            # breakpoint()
             # TODO(rcadene): make above methods return output dictionary?
             actions = self.unnormalize_outputs({self.act_key: actions})[self.act_key]
 
@@ -547,12 +547,14 @@ class DiffusionModel(nn.Module):
         if self.config.action_start_idx is not None:
             start = self.config.action_start_idx
         else:
-            start = 1
-            if self.config.drop_half_horizon:
-                start += self.config.n_action_steps // 2
+            start = n_obs_steps - 1
+            # if self.config.drop_half_horizon:
+            #     start += self.config.n_action_steps // 2
 
         end = start + self.config.n_action_steps
+        # breakpoint()
         actions = actions[:, start:end]
+        print('action clipping', start, end, actions.shape, self.config.n_action_steps, flush=True)
 
         return actions
 

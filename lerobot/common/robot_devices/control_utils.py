@@ -338,9 +338,21 @@ def predict_action(observation, policy, device, use_amp):
         torch.autocast(device_type=device.type) if device.type == "cuda" and use_amp else nullcontext(),
     ):
         # Convert to pytorch format: channel first and float32 in [0,1] with batch dimension
+        _debug_cropped: dict[str, torch.Tensor] = {}  # uint8 HWC, post-scale post-crop, for eval_recorder
         for name in observation:
             if type(observation[name]) == str: observation[name] = [observation[name]]; continue
             if "image" in name:
+                # --- Step 1: spatial downscale (mirrors create_downsampled_zarr scale_factor) ---
+                scale_factor = int(getattr(policy.config, "eval_scale_factor", 1))
+                if scale_factor > 1 and observation[name].ndim >= 2 and observation[name].dtype == torch.uint8:
+                    import cv2 as _cv2
+                    img_np = observation[name].numpy()  # (H, W, C)
+                    h, w = img_np.shape[:2]
+                    img_np = _cv2.resize(img_np, (w // scale_factor, h // scale_factor),
+                                         interpolation=_cv2.INTER_AREA)
+                    observation[name] = torch.from_numpy(img_np)
+
+                # --- Step 2: crop (coords are in post-scale space) ---
                 crop_shape = getattr(policy.config, "crop_shape", None)
                 if crop_shape is not None and observation[name].ndim >= 2:
                     crop_h, crop_w = [int(v) for v in crop_shape]
@@ -358,6 +370,11 @@ def predict_action(observation, policy, device, use_amp):
                         left = (width - crop_w) // 2
                     left = max(0, min(left, width - crop_w))
                     observation[name] = observation[name][top : top + crop_h, left : left + crop_w]
+
+                # Stash the uint8 HWC crop before float conversion so the recorder can save it
+                if observation[name].dtype == torch.uint8:
+                    _debug_cropped[name] = observation[name].clone()
+
                 if observation[name].dtype == torch.uint8:
                     observation[name] = observation[name].type(torch.float32) / 255
                 elif observation[name].dtype == torch.uint16: # depth
@@ -367,6 +384,9 @@ def predict_action(observation, policy, device, use_amp):
                 observation[name] = observation[name].permute(2, 0, 1).contiguous()
             observation[name] = observation[name].unsqueeze(0)
             observation[name] = observation[name].to(device)
+
+        # Expose the pre-normalisation crops on the policy so control_loop can forward them to the recorder
+        policy._debug_cropped_images = _debug_cropped
 
         # Compute the next action with the policy
         # based on the current observation
@@ -459,6 +479,7 @@ def record_episode(
     policy,
     fps,
     single_task,
+    eval_recorder=None,
 ):
     control_loop(
         robot=robot,
@@ -470,6 +491,7 @@ def record_episode(
         fps=fps,
         teleoperate=policy is None,
         single_task=single_task,
+        eval_recorder=eval_recorder,
     )
 
 def get_camera_names_from_observation(observation):
@@ -570,6 +592,7 @@ def control_loop(
     policy: PreTrainedPolicy = None,
     fps: int | None = None,
     single_task: str | None = None,
+    eval_recorder=None,
 ):
     # TODO(rcadene): Add option to record logs
     if not robot.is_connected:
@@ -683,6 +706,25 @@ def control_loop(
             }
             frame = {**persisted_obs, **action, "task": single_task}
             dataset.add_frame(frame)
+
+        if eval_recorder is not None:
+            if dataset is not None and dataset.episode_buffer is not None:
+                ep_idx = dataset.episode_buffer["episode_index"]
+            else:
+                ep_idx = len(eval_recorder._episode_boundaries)
+            fr_idx = len(eval_recorder._episode_buf)
+            # Merge the pre-normalisation crops so the recorder saves what the model actually saw
+            rec_obs = dict(observation)
+            debug_crops = getattr(policy, "_debug_cropped_images", {}) if policy is not None else {}
+            for _k, _v in debug_crops.items():
+                rec_obs[f"debug.{_k}"] = _v
+            eval_recorder.add_step(
+                observation=rec_obs,
+                action=action,
+                timestamp=timestamp,
+                episode_index=ep_idx,
+                frame_index=fr_idx,
+            )
 
         # TODO(Steven): This should be more general (for RemoteRobot instead of checking the name, but anyways it will change soon)
         if (display_data and not is_headless()) or (display_data and robot.robot_type.startswith("lekiwi")):

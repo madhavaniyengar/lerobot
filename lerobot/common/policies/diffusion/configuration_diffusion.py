@@ -112,7 +112,7 @@ class DiffusionConfig(PreTrainedConfig):
     # Inputs / output structure.
     n_obs_steps: int = 2
     horizon: int = 16
-    n_action_steps: int = 16
+    n_action_steps: int = 4
     # Start index into the predicted horizon for action execution.
     # Default (None) uses n_obs_steps-1 (standard behaviour = first n_action_steps).
     # Set to (horizon - n_action_steps) for last 8, or
@@ -152,6 +152,9 @@ class DiffusionConfig(PreTrainedConfig):
     # Eval-only live camera crop override. When >= 0 and crop_shape is set,
     # predict_action crops cam_wrist with this left x pixel before policy inference.
     eval_wrist_crop_left: int = -1
+    # Eval-only spatial downscale applied BEFORE crop, to match create_downsampled_zarr scale_factor.
+    # Set to 2 if training data was created with --scale-factor 2 (720x1280 → 360x640 before crop).
+    eval_scale_factor: int = 1
     crop_is_random: bool = True
     crop_jitter: int = 30
     pretrained_backbone_weights: str | None = None
@@ -175,7 +178,7 @@ class DiffusionConfig(PreTrainedConfig):
     clip_sample_range: float = 1.0
 
     use_text_embedding: bool = False
-    calibration_json: str = "lerobot/scripts/aloha_calibration/calibration_multiview.json"
+    calibration_json: str = "lerobot/scripts/franka_2cam_calibration/calibration_franka_2cam.json"
 
     #Mimicplay latent plan conditioning
     use_latent_plan: bool = False
