@@ -199,6 +199,16 @@ class DP3Policy(PreTrainedPolicy):
             self._queues["observation.images"] = deque(maxlen=self.config.n_obs_steps)
         if self.config.env_state_feature:
             self._queues["observation.environment_state"] = deque(maxlen=self.config.n_obs_steps)
+        # `forward()` unconditionally reads observation.points.point_cloud /
+        # observation.points.goal_gripper_pcds (core to the DP3 architecture, not gated by
+        # any config flag) -- but select_action()'s batch filtering only keeps keys present
+        # in `self._queues`, so without this those two keys were silently dropped before
+        # ever reaching the model at closed-loop-inference time. Added for LIBERO integration
+        # (see eval_hierarchical.py / create_libero_dataset.py --new_features point_cloud).
+        if "observation.points.point_cloud" in self.config.input_features:
+            self._queues["observation.points.point_cloud"] = deque(maxlen=self.config.n_obs_steps)
+        if "observation.points.goal_gripper_pcds" in self.config.input_features:
+            self._queues["observation.points.goal_gripper_pcds"] = deque(maxlen=self.config.n_obs_steps)
 
     @torch.no_grad
     def select_action(self, batch: dict[str, Tensor]) -> Tensor:

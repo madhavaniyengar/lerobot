@@ -3,7 +3,7 @@ Use data from LIBERO to create a LeRobotDataset.
 """
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
 from lerobot.scripts.dataset_utils import generate_heatmap_from_points, project_points_to_image, get_subgoal_indices_from_gripper_actions
-from lerobot.common.utils.libero_franka_utils import get_4_points_from_gripper_pos_orient, get_libero_caption, setup_libero_env, prepare_caption_to_bddl_mapping
+from lerobot.common.utils.libero_franka_utils import get_4_points_from_gripper_pos_orient, get_libero_caption, setup_libero_env, prepare_caption_to_bddl_mapping, get_scene_point_cloud
 import torch
 from tqdm import tqdm
 import numpy as np
@@ -106,6 +106,9 @@ def gen_libero_dataset(
             for frame_idx in range(num_steps):
                 frame_data = {}
                 frame_data["task"] = caption
+                # Required by GHOST's RpadLeRobotDataset.source_of_data() (reads item["embodiment"])
+                # to pick GRIPPER_IDX / source-token embeddings; not written by this script upstream.
+                frame_data["embodiment"] = "libero_franka"
                 frame_data["observation.images.cam_libero.color"] = all_obs[frame_idx]["agentview_image"]
                 frame_data["observation.images.cam_libero.wrist"] = all_obs[frame_idx]["robot0_eye_in_hand_image"]
                 frame_data["observation.images.cam_libero.transformed_depth"] = all_obs[frame_idx]["agentview_depth"]
@@ -127,6 +130,15 @@ def gen_libero_dataset(
                 if "observation.points.goal_gripper_pcds" in features:
                     gripper_pcd_world = all_obs[next_event_idx]["gripper_pcd"]  # World frame
                     frame_data["observation.points.goal_gripper_pcds"] = gripper_pcd_world
+                if "observation.points.point_cloud" in features:
+                    # DP3Policy (lerobot/common/policies/dp3/modeling_dp3.py) reads this
+                    # unconditionally -- required for training/evaluating policy.type=dp3
+                    # on LIBERO data, not present in the upstream version of this script.
+                    frame_data["observation.points.point_cloud"] = get_scene_point_cloud(
+                        all_obs[frame_idx]["agentview_depth"].astype(np.float32) / 1000.0,
+                        agentview_int_mat,
+                        agentview_ext_mat,
+                    )
 
                 libero_dataset.add_frame(frame_data)
 
@@ -169,6 +181,12 @@ if __name__ == "__main__":
 
     IMG_SHAPE = (256, 256)
     features = {
+        "embodiment": {
+            'dtype': 'string',
+            'shape': (1,),
+            'names': ['embodiment'],
+            'info': 'Name of embodiment',
+        },
         "observation.state": {
             'dtype': 'float32',
             'shape': (8,),
@@ -229,6 +247,13 @@ if __name__ == "__main__":
             'shape': (-1, 3),
             'names': ['N', 'channels'],
             'info': 'Goal gripper point cloud'
+        }
+    if "point_cloud" in args.new_features:
+        new_features["observation.points.point_cloud"] = {
+            'dtype': 'pcd',
+            'shape': (4500, 3),
+            'names': ['N', 'channels'],
+            'info': 'Aggregated scene point cloud (world frame), required by policy.type=dp3'
         }
 
     features.update(new_features)
